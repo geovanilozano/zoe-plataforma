@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Documento tecnico del nucleo de gestion de ZOE: arquitectura multi-tenant, ciclo de proyecto, imputacion de cobros, motor tributario colombiano, costos y reparto entre socios.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<title>ZOE — Núcleo de gestión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+
+:root{
+  --ground:#F1F4F7;
+  --surface:#FFFFFF;
+  --surface-2:#E7ECF1;
+  --ink:#121920;
+  --ink-2:#3B4751;
+  --muted:#6A7783;
+  --line:#D2D9E1;
+  --line-soft:#E2E7ED;
+  --accent:#0E6C88;
+  --accent-ink:#095065;
+  --accent-soft:#DBEBF2;
+  --energy:#A96908;
+  --energy-soft:#F6E9D4;
+  --ok:#2B7A56;
+  --crit:#A93A33;
+  --crit-soft:#F6DFDD;
+  --shadow:0 1px 2px rgba(18,25,32,.05), 0 8px 24px -16px rgba(18,25,32,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+  --ground:#0C1116;
+  --surface:#131A21;
+  --surface-2:#1B232B;
+  --ink:#E5EAEF;
+  --ink-2:#B5C0CB;
+  --muted:#84919E;
+  --line:#27313A;
+  --line-soft:#1F272F;
+  --accent:#4FB3CE;
+  --accent-ink:#8FD3E6;
+  --accent-soft:#10303D;
+  --energy:#DFA245;
+  --energy-soft:#33260F;
+  --ok:#5CB98B;
+  --crit:#E0736B;
+  --crit-soft:#361E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1116;
+  --surface:#131A21;
+  --surface-2:#1B232B;
+  --ink:#E5EAEF;
+  --ink-2:#B5C0CB;
+  --muted:#84919E;
+  --line:#27313A;
+  --line-soft:#1F272F;
+  --accent:#4FB3CE;
+  --accent-ink:#8FD3E6;
+  --accent-soft:#10303D;
+  --energy:#DFA245;
+  --energy-soft:#33260F;
+  --ok:#5CB98B;
+  --crit:#E0736B;
+  --crit-soft:#361E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+/* Eleccion explicita del lector — va despues, por eso gana */
+:root[data-doc-theme="light"]{
+  --ground:#F1F4F7;
+  --surface:#FFFFFF;
+  --surface-2:#E7ECF1;
+  --ink:#121920;
+  --ink-2:#3B4751;
+  --muted:#6A7783;
+  --line:#D2D9E1;
+  --line-soft:#E2E7ED;
+  --accent:#0E6C88;
+  --accent-ink:#095065;
+  --accent-soft:#DBEBF2;
+  --energy:#A96908;
+  --energy-soft:#F6E9D4;
+  --ok:#2B7A56;
+  --crit:#A93A33;
+  --crit-soft:#F6DFDD;
+  --shadow:0 1px 2px rgba(18,25,32,.05), 0 8px 24px -16px rgba(18,25,32,.28);
+}
+:root[data-doc-theme="dark"]{
+  --ground:#0C1116;
+  --surface:#131A21;
+  --surface-2:#1B232B;
+  --ink:#E5EAEF;
+  --ink-2:#B5C0CB;
+  --muted:#84919E;
+  --line:#27313A;
+  --line-soft:#1F272F;
+  --accent:#4FB3CE;
+  --accent-ink:#8FD3E6;
+  --accent-soft:#10303D;
+  --energy:#DFA245;
+  --energy-soft:#33260F;
+  --ok:#5CB98B;
+  --crit:#E0736B;
+  --crit-soft:#361E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px;
+  line-height:1.62;
+  margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;text-wrap:balance;margin:0;line-height:1.15;letter-spacing:-.015em}
+code,.mono,.formula,table.data td.num{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+a{color:var(--accent);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+/* ── shell ───────────────────────────────────────────── */
+.shell{max-width:1240px;margin:0 auto;padding:0 24px 96px;display:grid;grid-template-columns:1fr;gap:0}
+@media(min-width:1080px){
+  .shell{grid-template-columns:232px minmax(0,1fr);column-gap:56px;align-items:start}
+  .masthead{grid-column:1/-1}
+}
+
+/* ── masthead ────────────────────────────────────────── */
+.masthead{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 22px
+}
+.masthead h1{font-size:clamp(38px,6.2vw,68px);font-weight:700;max-width:16ch}
+.masthead .lede{
+  font-size:clamp(18px,2.2vw,21px);color:var(--ink-2);max-width:62ch;margin:22px 0 0
+}
+.meta-row{
+  display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:32px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)
+}
+.meta-row b{color:var(--ink-2);font-weight:500}
+
+/* ── toc ─────────────────────────────────────────────── */
+.toc{display:none}
+@media(min-width:1080px){
+  .toc{display:block;position:sticky;top:32px;padding-top:44px}
+  .toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .toc a{
+    display:grid;grid-template-columns:26px 1fr;gap:8px;text-decoration:none;
+    font-family:Archivo,sans-serif;font-size:13.5px;line-height:1.35;color:var(--ink-2);
+    padding:6px 8px;border-radius:4px;border-left:2px solid transparent
+  }
+  .toc a span{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);padding-top:1px}
+  .toc a:hover{background:var(--surface);color:var(--ink);border-left-color:var(--accent)}
+  .toc .toc-label{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--muted);padding:0 8px 12px
+  }
+}
+
+/* ── sections ────────────────────────────────────────── */
+main{padding-top:44px;min-width:0}
+section{padding:0 0 12px;scroll-margin-top:24px}
+section + section{margin-top:56px;padding-top:44px;border-top:1px solid var(--line-soft)}
+.sec-num{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  color:var(--accent);display:block;margin-bottom:12px
+}
+section > h2{font-size:clamp(25px,3.4vw,33px);font-weight:600;max-width:22ch}
+section > .intro{color:var(--ink-2);max-width:66ch;margin:16px 0 0}
+h3{font-size:19px;font-weight:600;margin:38px 0 0;max-width:34ch}
+h4{font-size:14px;font-weight:600;margin:26px 0 0;letter-spacing:0}
+p{max-width:68ch;margin:14px 0 0}
+ul,ol{max-width:68ch;margin:14px 0 0;padding-left:22px}
+li{margin-top:6px}
+li::marker{color:var(--muted)}
+strong{font-weight:600}
+em.term{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:.88em;color:var(--ink-2);background:var(--surface-2);padding:1px 5px;border-radius:3px}
+p .mono,li .mono,td .mono{
+  font-size:.88em;color:var(--ink);background:var(--surface-2);
+  padding:1px 5px;border-radius:3px;overflow-wrap:break-word
+}
+
+/* ── pipeline ────────────────────────────────────────── */
+.pipeline{display:grid;gap:10px;margin-top:28px}
+@media(min-width:720px){.pipeline{grid-template-columns:repeat(4,1fr)}}
+.stage{
+  background:var(--surface);border:1px solid var(--line);border-radius:5px;
+  padding:16px 16px 18px;position:relative;box-shadow:var(--shadow)
+}
+.stage::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent);border-radius:5px 0 0 5px}
+.stage:first-child::before{background:var(--energy)}
+.stage .st-n{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.stage .st-t{font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin-top:8px;display:block}
+.stage .st-d{font-size:14px;color:var(--ink-2);margin-top:8px;line-height:1.5}
+.stage .st-tech{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);margin-top:12px;display:block}
+
+/* ── layer stack ─────────────────────────────────────── */
+.stack{margin-top:28px;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--surface)}
+.layer{display:grid;grid-template-columns:1fr;gap:4px;padding:16px 18px;border-top:1px solid var(--line-soft)}
+.layer:first-child{border-top:0}
+@media(min-width:640px){.layer{grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:baseline}}
+.layer .l-name{font-family:Archivo,sans-serif;font-weight:600;font-size:14.5px}
+.layer .l-name small{display:block;font-family:"IBM Plex Mono",monospace;font-weight:400;font-size:10.5px;color:var(--muted);letter-spacing:.1em;margin-top:3px}
+.layer .l-body{font-size:14.5px;color:var(--ink-2);line-height:1.55}
+.layer:nth-child(1){background:var(--energy-soft)}
+.layer:nth-child(1) .l-body{color:var(--ink)}
+
+/* ── formula ─────────────────────────────────────────── */
+.formula{
+  margin-top:22px;background:var(--surface);border:1px solid var(--line);
+  border-left:3px solid var(--accent);border-radius:0 5px 5px 0;padding:16px 18px;
+  box-shadow:var(--shadow)
+}
+.formula .f-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.formula .f-name{font-family:Archivo,sans-serif;font-weight:600;font-size:14px}
+.formula .f-eq{
+  font-size:14.5px;line-height:1.75;color:var(--ink);overflow-x:auto;
+  padding-bottom:2px;white-space:pre-wrap
+}
+.formula .f-note{font-size:14px;color:var(--ink-2);margin-top:12px;line-height:1.5;max-width:66ch}
+.formula.energy{border-left-color:var(--energy)}
+.formula.crit{border-left-color:var(--crit)}
+
+.chip{
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 7px;border-radius:3px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap
+}
+.chip.norm{background:var(--surface-2);color:var(--muted)}
+.chip.energy{background:var(--energy-soft);color:var(--energy)}
+.chip.crit{background:var(--crit-soft);color:var(--crit)}
+
+/* ── tables ──────────────────────────────────────────── */
+.tw{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:5px;background:var(--surface)}
+table.data{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+table.data th{
+  font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:10.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 14px;
+  border-bottom:1px solid var(--line);white-space:nowrap
+}
+table.data td{padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-2);line-height:1.5;text-wrap:pretty}
+table.data tr:last-child td{border-bottom:0}
+table.data td:first-child{color:var(--ink);font-weight:600;font-family:Archivo,sans-serif;font-size:13.5px;padding-right:20px;min-width:9ch}
+table.data td.num{text-align:right;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+table.data td.mono{font-size:12.5px;color:var(--ink);white-space:normal;overflow-wrap:break-word}
+.st-dot{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;font-size:11px;white-space:nowrap}
+.st-dot::before{content:"";width:7px;height:7px;border-radius:50%;flex:none}
+.st-dot.on::before{background:var(--ok)}
+.st-dot.av::before{background:var(--energy)}
+.st-dot.pl::before{background:var(--muted)}
+
+/* ── callout ─────────────────────────────────────────── */
+.callout{
+  margin-top:26px;padding:18px 20px;border-radius:5px;background:var(--surface);
+  border:1px solid var(--line);border-top:3px solid var(--crit)
+}
+.callout.rule{border-top-color:var(--accent)}
+.callout .c-title{font-family:Archivo,sans-serif;font-weight:600;font-size:14.5px;margin-bottom:8px}
+.callout p{font-size:15px;margin-top:8px;max-width:64ch}
+.callout p:first-of-type{margin-top:0}
+
+/* ── grid of cards ───────────────────────────────────── */
+.cards{display:grid;gap:12px;margin-top:24px}
+@media(min-width:700px){.cards{grid-template-columns:1fr 1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:16px 18px}
+.card h4{margin:0 0 8px}
+.card p{font-size:14.5px;margin:0;color:var(--ink-2);line-height:1.55;max-width:none}
+.card .c-tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
+
+/* ── selector de tema ────────────────────────────────── */
+.theme-toggle{
+  position:fixed;right:20px;bottom:20px;z-index:60;
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 16px;border-radius:999px;cursor:pointer;
+  background:var(--surface);color:var(--ink-2);
+  border:1px solid var(--line);box-shadow:var(--shadow);
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;font-size:13px;font-weight:600;
+  transition:color .15s ease,border-color .15s ease
+}
+/* En pantalla ancha va arriba, donde se ve al entrar */
+@media(min-width:760px){
+  .theme-toggle{top:22px;bottom:auto}
+}
+.theme-toggle:hover{color:var(--ink);border-color:var(--accent)}
+.theme-toggle .tt-icon{font-size:13px;line-height:1}
+@media(prefers-reduced-motion:reduce){.theme-toggle{transition:none}}
+
+/* ── steps ───────────────────────────────────────────── */
+ol.steps{list-style:none;padding:0;counter-reset:s;margin-top:22px;max-width:70ch}
+ol.steps li{
+  counter-increment:s;position:relative;
+  margin-top:0;padding:12px 0 12px 42px;border-bottom:1px solid var(--line-soft);
+  font-size:15px;line-height:1.6;color:var(--ink-2)
+}
+ol.steps li:last-child{border-bottom:0}
+ol.steps li::before{
+  content:counter(s,decimal-leading-zero);position:absolute;left:0;top:16px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1;color:var(--accent);
+  font-variant-numeric:tabular-nums
+}
+ol.steps li b{color:var(--ink);font-weight:600}
+
+footer{
+  margin-top:72px;padding-top:28px;border-top:1px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);line-height:1.8
+}
+@media(min-width:1080px){footer{grid-column:2}}
+
+/* ── impresion / PDF ─────────────────────────────────── */
+@media print{
+  :root,:root[data-theme="dark"],:root[data-doc-theme="dark"]{
+  --ground:#F1F4F7;
+  --surface:#FFFFFF;
+  --surface-2:#E7ECF1;
+  --ink:#121920;
+  --ink-2:#3B4751;
+  --muted:#6A7783;
+  --line:#D2D9E1;
+  --line-soft:#E2E7ED;
+  --accent:#0E6C88;
+  --accent-ink:#095065;
+  --accent-soft:#DBEBF2;
+  --energy:#A96908;
+  --energy-soft:#F6E9D4;
+  --ok:#2B7A56;
+  --crit:#A93A33;
+  --crit-soft:#F6DFDD;
+  --shadow:0 1px 2px rgba(18,25,32,.05), 0 8px 24px -16px rgba(18,25,32,.28);
+    --shadow:none;
+  }
+  .theme-toggle,.toc{display:none !important}
+  .shell{grid-template-columns:1fr !important;max-width:none;padding:0}
+  body{font-size:11pt}
+  section{break-inside:auto}
+  section > h2,h3,h4{break-after:avoid}
+  .formula,.callout,.card,.stage,.tw{break-inside:avoid}
+  footer{grid-column:1 !important}
+}
+
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<header class="masthead">
+  <p class="kicker">ZOE — Documento técnico de plataforma</p>
+  <h1>Núcleo de gestión: multi-tenant, proyectos y motor tributario</h1>
+  <p class="lede">Cómo se separa la información de cada organización, cómo viaja un trabajo desde el prospecto hasta el cobro, y con qué reglas se calculan las retenciones colombianas, el costo real de un proyecto y el reparto entre socios.</p>
+  <div class="meta-row">
+    <span><b>Alcance</b> · núcleo de gestión · 70 módulos · 55 entidades</span>
+    <span><b>Base</b> · PostgreSQL · Prisma 6</span>
+    <span><b>Pruebas</b> · 679</span>
+    <span><b>País</b> · Colombia — UVT, RETEFUENTE, RETEICA, RETEIVA</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contenido">
+  <p class="toc-label">Contenido</p>
+  <ol>
+    <li><a href="#s1"><span>01</span>Qué cubre este documento</a></li>
+    <li><a href="#s2"><span>02</span>Multi-tenant y unidades de negocio</a></li>
+    <li><a href="#s3"><span>03</span>Del prospecto al cobro</a></li>
+    <li><a href="#s4"><span>04</span>Fases, entregables y tareas</a></li>
+    <li><a href="#s5"><span>05</span>El dinero y su imputación</a></li>
+    <li><a href="#s6"><span>06</span>Motor tributario</a></li>
+    <li><a href="#s7"><span>07</span>Presupuesto y costo real</a></li>
+    <li><a href="#s8"><span>08</span>Reparto entre socios</a></li>
+    <li><a href="#s9"><span>09</span>Auditoría y borrado</a></li>
+    <li><a href="#s10"><span>10</span>Decisiones que costaron caro</a></li>
+    <li><a href="#s11"><span>11</span>Arquitectura y ejecución</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section id="s1">
+  <span class="sec-num">01</span>
+  <h2>Qué cubre este documento</h2>
+  <p class="intro">ZOE administra el ciclo completo de una empresa de servicios: quién es el cliente, qué se le vendió, quién lo ejecuta, cuánto costó de verdad y a quién le toca la utilidad. Este documento describe <strong>el núcleo de gestión</strong> — la parte que resuelve ese ciclo.</p>
+
+  <div class="callout rule">
+    <div class="c-title">Alcance, dicho de frente</div>
+    <p>La plataforma tiene más módulos de los que aquí se describen. Este documento cubre el núcleo de gestión: organizaciones, proyectos, dinero, tributario, costos y reparto. Deja fuera de forma deliberada los módulos de producción de contenido. Se dice para que nadie lea esto como el inventario completo del sistema.</p>
+  </div>
+
+  <p>El criterio de diseño que atraviesa todo lo que sigue es uno solo: <strong>una cifra que se ve confiable y está mal es peor que ninguna cifra</strong>. Casi todas las decisiones del modelo de datos que se explican aquí existen porque en algún momento el sistema dio un número creíble y falso.</p>
+
+  <div class="cards">
+    <div class="card">
+      <span class="c-tag">Organización</span>
+      <h4>Multi-tenant con unidades</h4>
+      <p>Cada organización vive aislada, y dentro se divide en unidades de negocio que comparten usuarios, roles y finanzas.</p>
+    </div>
+    <div class="card">
+      <span class="c-tag">Operación</span>
+      <h4>Prospecto → proyecto → cobro</h4>
+      <p>Cotización, conversión a proyecto, fases con entregables, tareas internas y cobros atados a su factura.</p>
+    </div>
+    <div class="card">
+      <span class="c-tag">Fiscal</span>
+      <h4>Retenciones por reglas, no por tarifa</h4>
+      <p>La tarifa depende del tercero y del año. Todo es dato con vigencia, y nada se da por bueno sin confirmación humana.</p>
+    </div>
+    <div class="card">
+      <span class="c-tag">Resultado</span>
+      <h4>Utilidad y reparto</h4>
+      <p>Presupuesto contra gasto real para saber la utilidad de un proyecto en curso, y reparto entre socios con su rastro contable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section id="s2">
+  <span class="sec-num">02</span>
+  <h2>Multi-tenant y unidades de negocio</h2>
+  <p class="intro">La unidad de aislamiento es el <strong>tenant</strong>: una organización con su propio nombre, identificador, logotipo y paleta. Cada fila de negocio del sistema lleva su <code>tenantId</code>.</p>
+
+  <h3>Un usuario, varias organizaciones</h3>
+  <p>La relación entre persona y organización no es un campo sino una tabla, <code>UserTenant</code>, con restricción de unicidad sobre el par usuario–organización. Un usuario puede pertenecer a varias, <strong>con un rol distinto en cada una</strong>, y puede quedar inactivo en una sin desaparecer de las demás.</p>
+
+  <div class="formula">
+    <div class="f-head"><span class="f-name">Cadena de acceso</span><span class="chip norm">Una sola dirección</span></div>
+    <div class="f-eq">Usuario ─ UserTenant ─ Rol ─ Permisos
+                   │
+                 Tenant ─ Unidad de negocio ─ Proyectos · Pagos · Órdenes</div>
+    <div class="f-note">Los roles pertenecen al tenant, no al sistema: cada organización define los suyos. Los marcados como <code>isSystem</code> vienen predefinidos y no se editan, para que nadie se quede sin administrador por accidente.</div>
+  </div>
+
+  <h3>Unidades de negocio</h3>
+  <p>Dentro de una organización, la <strong>unidad de negocio</strong> agrupa proyectos, pagos y órdenes. Cada unidad lleva su color, y una bandera <code>isAcademic</code> que cambia qué campos pide un proyecto. La misma instalación sostiene así líneas de negocio distintas sin duplicar usuarios ni contabilidad.</p>
+
+  <div class="callout">
+    <div class="c-title">Por qué la unidad no es solo una etiqueta</div>
+    <p>Los proyectos, los pagos y las órdenes de compra cuelgan de la unidad. Eso permite responder «cuánto dejó esta línea de negocio» sin filtrar a mano, y es lo que hace que el reparto de utilidades pueda calcularse por unidad y no solo por organización.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section id="s3">
+  <span class="sec-num">03</span>
+  <h2>Del prospecto al cobro</h2>
+  <p class="intro">El recorrido comercial es una cadena de estados, y cada salto deja un registro que sobrevive al siguiente.</p>
+
+  <div class="tw">
+    <table class="data">
+      <thead><tr><th>Etapa</th><th>Estados</th><th>Qué decide</th></tr></thead>
+      <tbody>
+        <tr><td>Cliente</td><td class="mono">PROSPECT · ACTIVE · INACTIVE · COMPLETED</td><td>Si entra al embudo comercial o al operativo</td></tr>
+        <tr><td>Interacción</td><td class="mono">CALL · EMAIL · WHATSAPP · MEETING · NOTE</td><td>Historial de contacto, con su fecha</td></tr>
+        <tr><td>Cotización</td><td class="mono">DRAFT · SENT · APPROVED · REJECTED · EXPIRED</td><td>Precio, renglones y tratamiento de IVA</td></tr>
+        <tr><td>Proyecto</td><td class="mono">PENDING · IN_PROGRESS · IN_REVIEW · CORRECTIONS · COMPLETED · CANCELLED</td><td>Ejecución y facturación</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>La conversión de cotización a proyecto</h3>
+  <p>Aprobar una cotización crea el proyecto, y el vínculo entre ambos es <strong>una llave foránea</strong>. Merece explicación porque antes no lo era.</p>
+
+  <div class="callout">
+    <div class="c-title">Un vínculo que se pierde al editar un campo de texto no es un vínculo</div>
+    <p>La relación cotización–proyecto vivía como una marca dentro del campo de notas. Editar las notas la borraba, y entonces la cotización volvía a aparecer como convertible: se podía convertir por segunda vez, creando un segundo proyecto y <strong>cobrándole la misma deuda dos veces al mismo cliente</strong>. La misma lección se aplicó después a los datos estructurados de una propuesta, que también vivían dentro de las notas.</p>
+  </div>
+
+  <h3>Renglones de cotización</h3>
+  <p>Los renglones se guardan como estructura, no como texto: descripción, cantidad, precio unitario, descuento, tratamiento de IVA, tarifa, total e IVA calculado. El <code>total</code> del renglón es la <strong>base</strong>, y el IVA va aparte — la misma convención que en la factura y en la orden, para que ninguna suma tenga que adivinar si un número ya trae impuesto dentro.</p>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section id="s4">
+  <span class="sec-num">04</span>
+  <h2>Fases, entregables y tareas</h2>
+  <p class="intro">Un proyecto se descompone en <strong>fases</strong>, cada fase produce <strong>entregables</strong>, y el trabajo interno se organiza en <strong>tareas</strong>. Son tres niveles con estados propios porque responden a preguntas distintas.</p>
+
+  <div class="tw">
+    <table class="data">
+      <thead><tr><th>Nivel</th><th>Estados</th><th>Pregunta que responde</th></tr></thead>
+      <tbody>
+        <tr><td>Fase</td><td class="mono">PENDING · IN_PROGRESS · COMPLETED · BLOCKED</td><td>¿Por dónde va el proyecto?</td></tr>
+        <tr><td>Entregable</td><td class="mono">PENDING · IN_PROGRESS · SUBMITTED · APPROVED · REJECTED</td><td>¿Qué se le entregó al cliente y lo aceptó?</td></tr>
+        <tr><td>Tarea</td><td class="mono">TODO · IN_PROGRESS · IN_REVIEW · DONE</td><td>¿Quién está haciendo qué ahora?</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>El entregable tiene <code>SUBMITTED</code> y <code>REJECTED</code> porque entregar no es lo mismo que terminar: un entregable enviado y devuelto es un estado real del negocio, y colapsarlo en «pendiente» borra la información de que ya hubo una vuelta.</p>
+
+  <h3>Quién trabaja y quién cobra son dos tablas</h3>
+  <div class="callout rule">
+    <div class="c-title">ProjectMember y ProjectPartner no se fusionaron a propósito</div>
+    <p><code>ProjectMember</code> significa <em>quién trabaja en las tareas</em>. <code>ProjectPartner</code> significa <em>a quién le toca parte de la utilidad</em>, y por la misma fila, quién puede ver el proyecto. Si fueran el mismo modelo, <strong>agregar un revisor a un proyecto le daría derecho económico sobre él</strong>. Mantener el reparto y el acceso en una sola fuente evita además que se desincronicen.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section id="s5">
+  <span class="sec-num">05</span>
+  <h2>El dinero y su imputación</h2>
+  <p class="intro">Todo movimiento de plata es un <code>Payment</code> con tipo, método, estado y fecha de pago. Los métodos incluyen los locales — transferencia, Nequi, Daviplata — porque un sistema que solo entiende «tarjeta» no sirve para registrar cómo se cobra de verdad.</p>
+
+  <h3>El tipo que evita contar dos veces</h3>
+  <div class="formula">
+    <div class="f-head"><span class="f-name">PaymentType</span><span class="chip">INCOME · EXPENSE · REFUND · TRASPASO</span></div>
+    <div class="f-note"><strong>TRASPASO</strong> es plata que cambia de bolsillo sin ser ingreso ni gasto: un retiro de cajero, un traslado entre cuentas. Sin ese tipo, la misma plata se contaba dos veces — el retiro como gasto, y además aquello en lo que se fue. Todas las sumas del sistema filtran explícitamente por <code>INCOME</code> o <code>EXPENSE</code>, así que un traspaso aparece en los listados y no suma en ningún total.</div>
+  </div>
+
+  <h3>A qué factura se imputa un cobro</h3>
+  <p>Un cobro puede atarse a la factura contra la que se giró. Cuando no lo está, el sistema aplica <strong>imputación por antigüedad</strong>: lo cobrado va contra la factura más vieja primero.</p>
+
+  <div class="callout">
+    <div class="c-title">Por qué la antigüedad es respaldo y no regla</div>
+    <p>Con un proyecto facturado en dos partes — un anticipo y un saldo, que es como se cobra una obra — el sistema tenía que adivinar. La imputación por antigüedad es la regla usual del comercio, pero es una suposición: si el cliente giró contra la factura nueva y dejó la vieja pendiente, <strong>la pantalla lo decía al revés</strong>. Ahora el vínculo es explícito cuando se conoce.</p>
+    <p>El campo sigue siendo opcional, y no por compatibilidad: hay giros que de verdad no tienen factura todavía. Un anticipo entra antes de que exista el documento, y los ingresos que llegan por importación masiva se registran sin saber contra qué van. Para esos, la antigüedad sigue siendo el respaldo, y existe una operación para atarlos después.</p>
+  </div>
+
+  <h3>Borrar un papel no devuelve la plata</h3>
+  <p>Las relaciones de <code>Payment</code> usan <code>SetNull</code> y no <code>Cascade</code>. Con borrado en cascada, eliminar un cliente o un proyecto borraba también sus pagos, y <strong>el ingreso histórico de meses ya cerrados cambiaba de forma retroactiva e irrecuperable</strong>. Anular una factura tampoco puede borrar la plata que el cliente giró: el pago vuelve a quedar sin factura y la imputación por antigüedad lo recoge, que es justo lo que debe pasar.</p>
+
+  <h3>Cuotas programadas</h3>
+  <p><code>PaymentSchedule</code> guarda el plan de pagos con estados <span class="mono">PENDING · PAID · OVERDUE · CANCELLED</span>. El vencimiento no se calcula al vuelo: se declara, para que «está en mora» sea un hecho registrado y no una inferencia que cambia según cuándo se abra la pantalla.</p>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section id="s6">
+  <span class="sec-num">06</span>
+  <h2>Motor tributario</h2>
+  <p class="intro">El sistema tributario colombiano no tiene «una tarifa»: tiene reglas. El 4 % de servicios se vuelve 6 % si el proveedor no es declarante; el suministro es 2,5 % o 3,5 % por lo mismo; y por debajo de la cuantía mínima en UVT no se retiene nada. <strong>Por eso las tarifas son datos y no constantes en el código.</strong></p>
+
+  <h3>Las cuatro tablas que sostienen el cálculo</h3>
+  <div class="tw">
+    <table class="data">
+      <thead><tr><th>Tabla</th><th>Qué guarda</th><th>Por qué existe</th></tr></thead>
+      <tbody>
+        <tr><td>TaxConcept</td><td>El concepto de retención: servicios generales, transporte de carga, compras</td><td>La tarifa no vive aquí, porque depende del tercero</td></tr>
+        <tr><td>TaxConceptRate</td><td>Tarifa según la condición del tercero, con cuatro decimales</td><td>Un mismo concepto tiene tarifas distintas por declarante o no declarante</td></tr>
+        <tr><td>TaxConceptThreshold</td><td>Cuantía mínima en UVT, <b>con vigencia</b></td><td>Estos valores se mueven, y la historia no se puede reescribir</td></tr>
+        <tr><td>UvtValue</td><td>Valor del UVT por año</td><td>El mínimo se evalúa contra el UVT del año del documento</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <div class="c-title">Por qué las cuantías mínimas tienen vigencia y no son un campo</div>
+    <p>El Decreto 572 de 2025 bajó servicios de 4 a 2 UVT y compras de 27 a 10 UVT desde el 1 de junio de 2025. El Consejo de Estado suspendió esos artículos el 7 de mayo de 2026, revocó la suspensión el 2 de junio, y desde el 1 de julio volvieron a regir los valores nuevos. <strong>Dos cambios en catorce meses, con el juicio de nulidad todavía abierto.</strong> Un campo único obligaría a reescribir la historia en cada vuelta.</p>
+  </div>
+
+  <h3>La fecha que manda es la del documento</h3>
+  <p>Un costo guarda la fecha del documento del proveedor, distinta de la fecha en que se registró. Registrar hoy una factura de marzo del año pasado debe usar <strong>el UVT y los umbrales de marzo del año pasado</strong>. Recalcular la historia con valores nuevos destruye la credibilidad de un sistema contable.</p>
+
+  <h3>El perfil del tercero</h3>
+  <p><code>TaxParty</code> guarda lo que el motor necesita para escoger la tarifa: tipo de persona, si declara renta, si es responsable de IVA, si es gran contribuyente, si es <strong>autorretenedor</strong> — a quien no se le retiene — y si es agente de retención de IVA. Sin esa ficha el motor no puede decidir, y lo dice en vez de inventar.</p>
+
+  <div class="callout rule">
+    <div class="c-title">Nada se da por bueno sin que alguien lo confirme</div>
+    <p>Tarifas, cuantías, valores de UVT y tarifas de ICA llevan una bandera <code>isConfirmed</code>. Ninguna se presenta como definitiva hasta que una persona la aprueba en pantalla. <strong>Un número inventado en un motor tributario es peor que ninguno, porque se ve confiable.</strong></p>
+    <p>Y el motor guarda con cada cálculo las advertencias que emitió — tarifa sin confirmar, tercero sin ficha, UVT sin confirmar. Antes esas advertencias solo vivían en la vista previa del formulario, así que al guardar, el número quedaba pareciendo definitivo justo cuando dejaba de poder revisarse.</p>
+  </div>
+
+  <h3>ICA es municipal</h3>
+  <p>La tarifa de ICA depende del municipio y de la actividad, y se guarda por milaje en su propia tabla. Sin ella solo queda marcar el valor como provisional, que es exactamente el problema que tiene una hoja de cálculo.</p>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section id="s7">
+  <span class="sec-num">07</span>
+  <h2>Presupuesto y costo real</h2>
+  <p class="intro">Saber si un proyecto deja dinero exige dos cosas separadas: lo que se <strong>espera</strong> gastar y lo que se <strong>gastó</strong>. Tenerlas juntas es lo que permite hablar de utilidad antes de cerrar.</p>
+
+  <div class="callout">
+    <div class="c-title">El número enorme, tranquilizador y falso</div>
+    <p>Sin partidas de presupuesto, la utilidad de un proyecto en ejecución no se puede calcular — y lo peor es que <strong>sí se puede calcular mal</strong>: precio menos gastado hasta hoy. En un proyecto de instalación solar eso daba veinte millones de utilidad cuando todavía no se habían comprado ni los paneles ni el inversor. Es la peor clase de número: grande, tranquilizador y falso.</p>
+    <p>Con las partidas declaradas, las tres cifras salen solas: lo que falta por gastar, lo que costará al final, y la utilidad que queda si el presupuesto aguanta.</p>
+  </div>
+
+  <h3>Un costo no es un pago</h3>
+  <p>Un <code>ProjectCost</code> es un frente de trabajo — la compra, el alquiler o el servicio que alguien prestó — con su tratamiento fiscal y la carpeta donde viven sus soportes. Los pagos cuelgan de él, en plural.</p>
+
+  <div class="formula">
+    <div class="f-head"><span class="f-name">Por qué la separación importa</span></div>
+    <div class="f-eq">1 costo de un proveedor
+   ├─ pago 1  (transferencia)
+   ├─ pago 2  (transferencia)
+   ├─ retención practicada, todavía por girar a la DIAN
+   └─ soporte: FACTURA_PENDIENTE</div>
+    <div class="f-note">Un solo costo, dos giros, una retención pendiente y una factura que no ha llegado. Cuatro hechos distintos que un único registro «gasto» no puede representar sin mentir en alguno.</div>
+  </div>
+
+  <h3>El gasto que nadie previó</h3>
+  <p>El vínculo entre un gasto y su partida de presupuesto es <strong>opcional a propósito</strong>. Un gasto que nadie previó es un hecho normal, y esconderlo bajo una partida inventada sería peor que dejarlo aparte: la pantalla los agrupa como «no estaba presupuestado», que es información útil sobre cómo se planeó.</p>
+
+  <p>El vínculo con la orden de compra que lo autorizó usa <code>SetNull</code>: si se borra la orden, <strong>el gasto sigue existiendo</strong>. La plata se gastó de verdad; borrar el papel que la autorizó no la devuelve.</p>
+
+  <h3>IVA por renglón, no por factura</h3>
+  <div class="callout">
+    <div class="c-title">Tratar la factura como un todo infla el impuesto</div>
+    <p>El tratamiento de IVA va por ítem — <span class="mono">GRAVADO · EXCLUIDO · EXENTO</span> — porque en una misma factura conviven renglones excluidos y renglones gravados al 19 %. En un caso real, tratar la factura como un bloque inflaba el IVA en más de un millón de pesos.</p>
+    <p>Las retenciones también tienen tabla propia, porque <strong>cada una tiene su propia base</strong>: 4 % sobre lo gravado y 1 % sobre el transporte, no sobre el total. Y los valores quedan congelados: se guarda la tarifa, la base y el UVT que se usaron en ese momento. Si al año siguiente cambia el UVT o una tarifa, esa factura sigue diciendo exactamente lo que dijo.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 8 ══════════════ -->
+<section id="s8">
+  <span class="sec-num">08</span>
+  <h2>Reparto entre socios</h2>
+  <p class="intro">Un reparto es una decisión autorizada, no un movimiento de caja. Puede haber varios por proyecto, porque la plata se reparte a medida que entra y no solo al cerrar.</p>
+
+  <div class="callout rule">
+    <div class="c-title">Cuatro decimales, porque con dos un tercio no existe</div>
+    <p>La participación de cada socio se guarda con cuatro decimales. Con dos, <strong>33,33 × 3 = 99,99</strong> y la validación de suma lo rechaza: tres socios iguales — el caso más común de una sociedad — no se podían representar. Con 33,3333 la suma da 99,9999 y el desvío cabe holgado en la tolerancia, que además se pudo endurecer.</p>
+  </div>
+
+  <h3>De la decisión al asiento</h3>
+  <p>Al confirmar un reparto se genera un pago de egreso por socio, de modo que <strong>el efectivo disponible baja solo</strong> y nadie tiene que acordarse de registrarlo aparte. El vínculo con ese pago es una llave foránea real, no un texto: antes se escribía una vez y nadie garantizaba que apuntara a algo, así que el pago se podía borrar por detrás y el reparto quedaba diciendo que se pagó algo que no existe.</p>
+
+  <p>Ese vínculo usa <code>SetNull</code>: si el pago desaparece, el registro de a quién le tocaba cuánto tiene que sobrevivir. <strong>Es la decisión, no el movimiento de plata.</strong></p>
+</section>
+
+<!-- ══════════════ 9 ══════════════ -->
+<section id="s9">
+  <span class="sec-num">09</span>
+  <h2>Auditoría y borrado</h2>
+  <p class="intro">Dos mecanismos sostienen la trazabilidad: un registro de auditoría y un borrado que no destruye.</p>
+
+  <div class="cards">
+    <div class="card">
+      <span class="c-tag">Rastro</span>
+      <h4>AuditLog</h4>
+      <p>Registra los cambios sensibles con su autor y su momento. Es lo que permite responder «quién cambió este precio» meses después.</p>
+    </div>
+    <div class="card">
+      <span class="c-tag">Reversible</span>
+      <h4>Papelera</h4>
+      <p>El borrado es lógico. Un registro eliminado sale de las pantallas pero sigue existiendo, y con él las relaciones que sostenía.</p>
+    </div>
+  </div>
+
+  <p>La regla general del esquema es la misma en todas partes: <strong>ninguna eliminación puede borrar hacia atrás un hecho económico</strong>. Por eso las relaciones que tocan dinero usan <code>SetNull</code> y no <code>Cascade</code>, y por eso la papelera existe en vez de un <code>DELETE</code>.</p>
+</section>
+
+<!-- ══════════════ 10 ══════════════ -->
+<section id="s10">
+  <span class="sec-num">10</span>
+  <h2>Decisiones que costaron caro</h2>
+  <p class="intro">Estas quedaron documentadas dentro del propio esquema, donde las encuentra quien vaya a tocar ese código.</p>
+
+  <div class="tw">
+    <table class="data">
+      <thead><tr><th>Qué pasó</th><th>Qué se aprendió</th></tr></thead>
+      <tbody>
+        <tr><td>Un comentario de estilo JSDoc dentro del esquema Prisma</td><td>El entorno local toleraba <code>/** */</code>, pero el build de producción corre una versión anterior de la herramienta que lo rechaza al validar. El despliegue moría siempre en el mismo punto mientras se seguía sirviendo la build anterior, así que en pantalla no se veía ningún cambio y parecía que el código no llegaba. Solo <code>//</code> y <code>///</code>.</td></tr>
+        <tr><td>Texto libre dentro de un comentario de esquema</td><td>Ese texto se copia tal cual al cliente generado. Escribir ahí la secuencia que cierra un bloque de comentario lo termina antes de tiempo y deja el archivo de tipos corrupto, con cien errores en un archivo que nadie edita.</td></tr>
+        <tr><td>Las pantallas de finanzas ordenaban por fecha de pago</td><td>Sin índice, cada carga ordenaba en memoria la tabla completa de la organización. El panel agrupaba por proyecto en cada render, y borrar un proyecto hacía un recorrido secuencial por la llave foránea.</td></tr>
+        <tr><td>Vínculos guardados como marcas dentro de campos de texto</td><td>Editar el texto los borraba. Un dato que se pierde al editar otro campo no es un dato.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════ 11 ══════════════ -->
+<section id="s11">
+  <span class="sec-num">11</span>
+  <h2>Arquitectura y ejecución</h2>
+  <p class="intro">Monorepo con dos paquetes, una base de datos y un despliegue.</p>
+
+  <div class="formula">
+    <div class="f-head"><span class="f-name">Estructura</span></div>
+    <div class="f-eq">apps/web/       Next.js 15 · React 19 · Tailwind 4 · Zod 4
+packages/db/    Esquema Prisma 6 y cliente compartido
+docs/           Especificaciones y planes
+scripts/        Utilidades de mantenimiento</div>
+    <div class="f-note">Orquestado con Turborepo y pnpm. La generación del cliente de base de datos es una tarea propia, para que el resto del pipeline dependa de ella de forma explícita.</div>
+  </div>
+
+  <div class="tw">
+    <table class="data">
+      <thead><tr><th>Capacidad</th><th>Qué cubre</th></tr></thead>
+      <tbody>
+        <tr><td>Organizaciones</td><td>Multi-tenant con roles por organización, unidades de negocio y portal externo de acceso restringido</td></tr>
+        <tr><td>Comercial</td><td>Clientes, historial de interacciones, cotizaciones con renglones estructurados y conversión trazable a proyecto</td></tr>
+        <tr><td>Ejecución</td><td>Proyectos con fases, entregables y tareas, con estados propios en cada nivel</td></tr>
+        <tr><td>Finanzas</td><td>Cobros y gastos, métodos locales, cuotas programadas e imputación explícita a factura</td></tr>
+        <tr><td>Tributario</td><td>Retención en la fuente, ICA e IVA con tarifas por condición del tercero, cuantías con vigencia y UVT por año</td></tr>
+        <tr><td>Costos</td><td>Presupuesto por partidas contra gasto real, con soportes y retenciones congeladas</td></tr>
+        <tr><td>Reparto</td><td>Participaciones con cuatro decimales y generación automática del egreso por socio</td></tr>
+        <tr><td>Control</td><td>Registro de auditoría, borrado lógico y comentarios sobre las entidades</td></tr>
+        <tr><td>Inventario</td><td>Productos, movimientos de stock, proveedores y órdenes de servicio o compra</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Pruebas</h3>
+  <p><strong>679 pruebas</strong> corren en cada cambio, sobre el corredor nativo de Node. Cubren de forma deliberada la lógica que decide plata: imputación de cobros, alcance de rutas por rol, detección de duplicados y la conversión de cobro a factura.</p>
+</section>
+
+</main>
+
+<footer>
+  <p>Documento técnico de plataforma · ZOE — núcleo de gestión</p>
+  <p>Elaborado a partir del esquema de datos y de la lógica implementada. Cubre el núcleo de gestión; no es el inventario completo de la plataforma.</p>
+</footer>
+
+</div>
+
+<button class="theme-toggle" id="tt" type="button" aria-label="Cambiar tema">
+  <span class="tt-ico" aria-hidden="true">☾</span><span id="tt-txt">Modo oscuro</span>
+</button>
+
+<script>
+(function () {
+  var raiz = document.documentElement, boton = document.getElementById('tt'), texto = document.getElementById('tt-txt');
+  var guardado = null;
+  try { guardado = localStorage.getItem('zoe-tema'); } catch (e) {}
+  var oscuro = guardado ? guardado === 'dark'
+                        : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  function pintar() {
+    raiz.setAttribute('data-theme', oscuro ? 'dark' : 'light');
+    texto.textContent = oscuro ? 'Modo claro' : 'Modo oscuro';
+    boton.querySelector('.tt-ico').textContent = oscuro ? '☀' : '☾';
+  }
+  pintar();
+  boton.addEventListener('click', function () {
+    oscuro = !oscuro;
+    try { localStorage.setItem('zoe-tema', oscuro ? 'dark' : 'light'); } catch (e) {}
+    pintar();
+  });
+})();
+</script>
+
+</body>
+</html>
